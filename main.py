@@ -1,119 +1,141 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
-from time import time
-from typing import List
-from threading import Event
-from threading import Thread
+import time
 import random
+import pandas as pd
+import heapq
 
 
-DRIVER_PATH: str = "/usr/bin/chromedriver";
-WEB_PATH: str = "https://orteil.dashnet.org/cookieclicker/";
 
-COOKIES_ACCEPT_TAG: str = "p.fc-button-label";
-SELECT_LANG_TAG: str = "langSelect-PL";
-COOKIE_TAG: str = "bigCookie";
-UPGRADE_TAG: str = ".product.unlocked.enabled";
-
-ACCEPT_COOKIES_WAIT_TIME: int = 1;
-SELECT_LANG_WAIT_TIME: int = 3;
-BUY_INTERVAL: int = 5;
-MAIN_LOOP_INTERVAL: int = 1;
+def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
 
 
-def sleep(wait_for: int):
-    event = Event();
-    event.wait(wait_for)
+def insertion_sort(arr):
+    for i in range(1, len(arr)):
+        key = arr[i]
+        j = i - 1
+        
+        while j >= 0 and key < arr[j]:
+            arr[j + 1] = arr[j]
+            j -= 1
+        arr[j + 1] = key
 
 
-class DriverController:
-    def __init__(self):
-        service = Service(DRIVER_PATH);
+def quick_sort(arr):
+    if len(arr) <= 1: return arr
+    pivot = arr[len(arr) // 2]
 
-        self.__driver: WebDriver = webdriver.Chrome(service=service);
-        self.__driver.get(WEB_PATH)
+    left = [x for x in arr if x < pivot]
+    middle = [x for x in arr if x == pivot]
+    right = [x for x in arr if x > pivot]
+
+    return quick_sort(left) + middle + quick_sort(right)
 
 
-    def element_by_id(self, id: str) -> WebElement:
-        return self.__driver.find_element(By.ID, id);
+def merge_sort(arr):
+    if len(arr) > 1:
+        mid = len(arr) // 2
+        L = arr[:mid]
+        R = arr[mid:]
+
+        merge_sort(L)
+        merge_sort(R)
+
+        i = j = k = 0
+
+        while i < len(L) and j < len(R):
+            if L[i] < R[j]:
+                arr[k] = L[i]
+                i += 1
+            else:
+                arr[k] = R[j]
+                j += 1
+            k += 1
+
+        while i < len(L):
+            arr[k] = L[i]
+            i += 1
+            k += 1
+
+        while j < len(R):
+            arr[k] = R[j]
+            j += 1
+            k += 1
+
+
+def intro_sort(arr):
+    if len(arr) <= 1: return arr
+
+
+    def introsort_helper(start, end, depth_limit):
+        if start > end: return
+        
+        if depth_limit == 0:
+            heapq.heapify(arr[start:end + 1])
+            arr[start:end + 1] = [heapq.heappop(arr[start:end + 1]) for _ in range(start, end + 1)]
+        else:
+            pivot = partition(start, end)
+            introsort_helper(start, pivot - 1, depth_limit - 1)
+            introsort_helper(pivot + 1, end, depth_limit - 1)
+
+
+    def partition(low, high):
+        pivot = arr[high]
+        i = low - 1
     
-
-    def element_by_class_name(self, class_name: str) -> WebElement:
-        return self.__driver.find_element(By.CSS_SELECTOR, class_name);
-
-
-    def elements_list_by_class_name(self, class_name: str) -> List[WebElement]:
-        return self.__driver.find_elements(By.CSS_SELECTOR, class_name);
-
-
-class ClickerLogic:
-    def __init__(self, driver: DriverController):
-        self.__driver = driver;
-
+        for j in range(low, high):
+            if arr[j] <= pivot:
+                i += 1
+                arr[i], arr[j] = arr[j], arr[i]
+        arr[i + 1], arr[high] = arr[high], arr[i + 1]
     
-    def accept_cookies(self) -> None:
-        element = self.__driver.element_by_class_name(COOKIES_ACCEPT_TAG);
-        element.click();
+        return i + 1
 
 
-    def select_lang(self) -> None:
-        element = self.__driver.element_by_id(SELECT_LANG_TAG);
-        element.click();
+    depth_limit = (len(arr).bit_length() - 1) * 2
+    introsort_helper(0, len(arr) - 1, depth_limit)
 
 
-    def __click_cookie(self) -> None:
-        element = self.__driver.element_by_id(COOKIE_TAG);
-
-        while True:
-            element.click();
-
-
-    def __buy(self) -> None:
-        while True:
-            try:
-                upgrades = self.__get_upgrades();
-
-                self.__select_random_upgrade(upgrades);
-                sleep(BUY_INTERVAL)
-
-            except Exception as e:
-                pass
+def measure_time(sort_function, data):
+    start_time = time.time()
     
+    if sort_function in [quick_sort, intro_sort]:
+        sort_function(data.copy())  
+    else:
+        sort_function(data)
 
-    def __get_upgrades(self) -> List[WebElement]:
-        return self.__driver.elements_list_by_class_name(UPGRADE_TAG);
+    end_time = time.time()
+    return round(end_time - start_time, 3)
+
+
+def generate_data(size): return [random.randint(0, 10000) for _ in range(size)]
+
+
+data_sizes = [100, 1000, 10000]
+results = []
+algorithms = {
+    "Bubble Sort": bubble_sort,
+    "Insertion Sort": insertion_sort,
+    "Quick Sort": quick_sort,
+    "Merge Sort": merge_sort,
+    "TimSort": sorted,
+    "IntroSort": intro_sort,
+}
+
+
+for size in data_sizes:
+    data = generate_data(size)
+    row = {"Rozmiar danych": size}
+
+    for name, function in algorithms.items():
+        time_taken = measure_time(function, data)
+        row[name] = f"{time_taken} s"
     
-
-    def __select_random_upgrade(self, upgrades: List[WebElement]):
-        upgrades = random.choice(upgrades)
-        upgrades.click();
+    results.append(row)
 
 
-    def clicker_thread(self) -> None :
-        thread = Thread(target=self.__click_cookie, daemon=True)
-        thread.start()
-
-
-    def buyer_thread(self) -> None:
-        thread = Thread(target=self.__buy, daemon=True)
-        thread.start()
-
-
-if __name__ == "__main__":
-    driver = DriverController();
-    clicker = ClickerLogic(driver);
-    
-    clicker.accept_cookies();
-    sleep(ACCEPT_COOKIES_WAIT_TIME);
-
-    clicker.select_lang();
-    sleep(SELECT_LANG_WAIT_TIME);
-
-    clicker.clicker_thread();
-    clicker.buyer_thread();
-
-    while True:
-        sleep(MAIN_LOOP_INTERVAL);
+df = pd.DataFrame(results)
+print(df.to_string(index=False))
